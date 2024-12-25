@@ -1,66 +1,67 @@
 using System;
-using System.Collections.Generic;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 
 class Program
 {
+    private static string bitlyAccessToken = "YOUR_BITLY_ACCESS_TOKEN";
 
-    static Dictionary<string, string> urlDatabase = new Dictionary<string, string>();
-    static Random random = new Random();
-
-    static void Main()
+    static async Task Main(string[] args)
     {
         Console.WriteLine("URL Kısaltıcı'ya Hoş Geldiniz!");
+        Console.WriteLine("1. Bitly ile kısalt");
+        Console.WriteLine("2. TinyURL ile kısalt");
 
-        while (true)
+        string choice = Console.ReadLine();
+
+        Console.Write("Uzun URL'yi gir: ");
+        string longUrl = Console.ReadLine();
+
+        string shortUrl = choice switch
         {
-            Console.WriteLine("\n1. URL Kısalt\n2. Kısaltılmış URL'yi Görüntüle\n3. Çıkış\nSeçim yap: ");
-            string choice = Console.ReadLine();
+            "1" => await GetShortUrlFromBitly(longUrl),
+            "2" => await GetShortUrlFromTinyUrl(longUrl),
+            _ => throw new Exception("Geçersiz seçim!")
+        };
 
-            switch (choice)
-            {
-                case "1":
-                    Console.Write("Uzun URL'yi gir: ");
-                    string longUrl = Console.ReadLine();
-                    string shortUrl = CreateShortUrl(longUrl);
-                    Console.WriteLine($"Kısaltılmış URL: {shortUrl}");
-                    break;
+        Console.WriteLine($"Kısaltılmış URL: {shortUrl}");
+    }
 
-                case "2":
-                    Console.Write("Kısaltılmış URL'yi gir: ");
-                    string inputShortUrl = Console.ReadLine();
-                    if (urlDatabase.TryGetValue(inputShortUrl, out string originalUrl))
-                    {
-                        Console.WriteLine($"Orijinal URL: {originalUrl}");
-                    }
-                    else
-                    {
-                        Console.WriteLine("Bu URL bulunamadı!");
-                    }
-                    break;
+    static async Task<string> GetShortUrlFromBitly(string longUrl)
+    {
+        using (HttpClient client = new HttpClient())
+        {
+            string apiUrl = "https://api-ssl.bitly.com/v4/shorten";
+            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + bitlyAccessToken);
 
-                case "3":
-                    Console.WriteLine("Çıkış yapılıyor...");
-                    return;
+            var content = new StringContent(
+                $"{{\"long_url\": \"{longUrl}\"}}", 
+                Encoding.UTF8, 
+                "application/json"
+            );
 
-                default:
-                    Console.WriteLine("Geçersiz seçim, tekrar deneyin.");
-                    break;
-            }
+            HttpResponseMessage response = await client.PostAsync(apiUrl, content);
+            response.EnsureSuccessStatusCode();
+
+            string responseBody = await response.Content.ReadAsStringAsync();
+            JObject json = JObject.Parse(responseBody);
+            return json["link"].ToString();
         }
     }
 
-    static string CreateShortUrl(string longUrl)
+    static async Task<string> GetShortUrlFromTinyUrl(string longUrl)
     {
-        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        string shortUrl;
-
-         do
+        using (HttpClient client = new HttpClient())
         {
-            shortUrl = "https://short.ly/" + new string(Enumerable.Repeat(chars, 6)
-                .Select(s => s[random.Next(s.Length)]).ToArray());
-        } while (urlDatabase.ContainsKey(shortUrl));
+            string apiUrl = "http://tinyurl.com/api-create.php?url=" + longUrl;
 
-      urlDatabase[shortUrl] = longUrl;
-        return shortUrl;
+            HttpResponseMessage response = await client.GetAsync(apiUrl);
+            response.EnsureSuccessStatusCode();
+
+            string shortUrl = await response.Content.ReadAsStringAsync();
+            return shortUrl;
+        }
     }
 }
