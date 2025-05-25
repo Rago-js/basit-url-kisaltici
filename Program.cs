@@ -6,7 +6,7 @@ using Newtonsoft.Json.Linq;
 
 class Program
 {
-    private static string bitlyAccessToken = "YOUR_BITLY_ACCESS_TOKEN";
+    private static string bitlyAccessToken = "bitly access tokeni";
 
     static async Task Main(string[] args)
     {
